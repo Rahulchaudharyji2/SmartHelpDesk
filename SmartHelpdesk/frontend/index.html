@@ -4,9 +4,6 @@
   <meta charset="UTF-8" />
   <title>Smart Helpdesk MVP</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="manifest" href="manifest.webmanifest" />
-<meta name="theme-color" content="#2563eb" />
-
   <style>
     body { font-family: system-ui, Arial, sans-serif; margin: 0; padding: 0; background: #f6f7fb; }
     header { background: #1f2937; color: white; padding: 16px; }
@@ -34,6 +31,7 @@
   <section class="card">
     <h3>Raise a Ticket</h3>
     <input id="email" type="email" placeholder="Your email (optional)" />
+    <input id="phone" type="tel" placeholder="Your phone (optional, e.g., +91XXXXXXXXXX)" />
     <input id="subject" type="text" placeholder="Subject" />
     <textarea id="body" rows="5" placeholder="Describe your issue"></textarea>
     <select id="urgency">
@@ -67,11 +65,9 @@ const API = (path) => `http://localhost:8000${path}`;
 async function submitTicket() {
   const subject = document.getElementById('subject').value.trim();
   const body = document.getElementById('body').value.trim();
-  if (!subject || !body) {
-    alert('Please enter subject and description');
-    return;
-  }
+  if (!subject || !body) { alert('Please enter subject and description'); return; }
   const user_email = document.getElementById('email').value.trim() || null;
+  const user_phone = document.getElementById('phone').value.trim() || null;
   const urgency = document.getElementById('urgency').value || null;
   const btn = document.getElementById('submit');
   btn.disabled = true;
@@ -79,12 +75,13 @@ async function submitTicket() {
     const res = await fetch(API('/tickets/ingest'), {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({subject, body, user_email, channel: 'web', urgency})
+      body: JSON.stringify({subject, body, user_email, user_phone, channel: 'web', urgency})
     });
     const data = await res.json();
     if (data.ticket) {
+      const assignee = data.routing?.assignee_user ? ` Assignee: <span class="badge">${data.routing.assignee_user}</span>` : '';
       document.getElementById('result').innerHTML =
-        `Ticket #${data.ticket.id} created. Category: <span class="badge">${data.ticket.category}</span> Team: <span class="badge">${data.ticket.assignee_team}</span> Priority: <span class="badge">${data.ticket.priority}</span>`;
+        `Ticket #${data.ticket.id} created. Category: <span class="badge">${data.ticket.category}</span> Team: <span class="badge">${data.ticket.assignee_team}</span> Priority: <span class="badge">${data.ticket.priority}</span>${assignee}`;
       const kb = data.kb_suggestions || [];
       document.getElementById('kb').innerHTML = kb.length ? ('Suggestions: ' + kb.map(x => x.title).join(', ')) : '';
       refreshTickets();
@@ -104,7 +101,7 @@ async function refreshTickets() {
     const tickets = await res.json();
     const container = document.getElementById('tickets');
     container.innerHTML = tickets.map(t =>
-      `<div>#${t.id} [${t.priority}] ${t.subject} — <span class="badge">${t.category}</span> → ${t.assignee_team} — <span class="badge">${t.status}</span></div>`
+      `<div>#${t.id} [${t.priority}] ${t.subject} — <span class="badge">${t.category}</span> → ${t.assignee_team} ${t.assignee_user ? (' — <span class="badge">' + t.assignee_user + '</span>') : ''} — <span class="badge">${t.status}</span></div>`
     ).join('');
   } catch (e) {
     console.error(e);
@@ -121,7 +118,11 @@ async function sendChat() {
     const res = await fetch(API('/chat'), {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({message: text, user_email: document.getElementById('email').value.trim() || null})
+      body: JSON.stringify({
+        message: text,
+        user_email: document.getElementById('email').value.trim() || null,
+        user_phone: document.getElementById('phone').value.trim() || null
+      })
     });
     const data = await res.json();
     let reply = data.response;
@@ -149,11 +150,6 @@ document.getElementById('send').addEventListener('click', sendChat);
 document.getElementById('chatmsg').addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); });
 
 refreshTickets();
-</script>
-<script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('service-worker.js').catch(console.error);
-  }
 </script>
 </body>
 </html>
