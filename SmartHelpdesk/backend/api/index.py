@@ -1,6 +1,6 @@
-from backend.app.main import app  # FastAPI instance in main.py
+from backend.app.main import app
 
-# (Optional) Root test route only if main.py does NOT already define "/"
+# Optional root override (FastAPI already has /ping /health)
 @app.get("/")
-def root():
+def root_info():
     return {"service": "Smart Help Desk API", "status": "ok"}
