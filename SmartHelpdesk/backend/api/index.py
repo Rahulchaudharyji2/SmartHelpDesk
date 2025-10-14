@@ -1,6 +1,9 @@
-from backend.app.main import app
+import os, sys
 
-# Optional root info route; FastAPI already has /ping /health
-@app.get("/")
-def root():
-    return {"service": "Smart Help Desk API", "status": "ok"}
+# Add nested path to sys.path
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))  # root
+NESTED = os.path.join(BASE_DIR, "smarthelpdesk", "smarthelpdesk.", "backened")
+if NESTED not in sys.path:
+    sys.path.append(NESTED)
+
+from app.main import app  # because we appended path pointing at backened/app
