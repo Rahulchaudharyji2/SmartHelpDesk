@@ -6,16 +6,15 @@ from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy import func
-
 from dotenv import load_dotenv
+
 load_dotenv()
 
-# Local imports
 from .models import init_db, SessionLocal, Ticket, KnowledgeBase
 from .classifier import classify_text
 from .routing import route_ticket
 
-# Optional KB engine (can be disabled by env)
+# Optional KB (can be disabled by env flags)
 KB_DISABLED = os.getenv("DISABLE_KB_INDEX", "false").lower() == "true"
 SEED_DISABLED = os.getenv("DISABLE_SEED", "false").lower() == "true"
 try:
@@ -27,7 +26,7 @@ except Exception as e:
     print("KBEngine import failed:", e)
     KBEngine = None
 
-# Notifications (make safe if not configured)
+# Notifications safe import
 try:
     from .notifications import (
         notify_ticket_created,
@@ -38,12 +37,12 @@ try:
         notify_contact_requester,
     )
 except Exception as e:
-    print("Notifications module import failed:", e)
+    print("Notifications import failed:", e)
     def _noop(*_, **__): pass
     notify_ticket_created = notify_assignment = notify_requester_ticket_created = \
         notify_user_assignment = notify_requester_assigned = notify_contact_requester = _noop
 
-app = FastAPI(title="Smart Helpdesk API", version="0.6.1-vercel-safe")
+app = FastAPI(title="Smart Helpdesk API", version="0.6.1-vercel")
 
 app.add_middleware(
     CORSMiddleware,
@@ -53,12 +52,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Auto-assign config
 AUTO_ASSIGN = os.getenv("AUTO_ASSIGN", "false").lower() == "true"
 TEAMS_ROSTER_RAW = os.getenv("TEAMS_ROSTER", "")
 
 def parse_roster(raw: str) -> Dict[str, List[str]]:
-    roster: Dict[str, List[str]] = {}
+    roster = {}
     for chunk in raw.split(";"):
         chunk = chunk.strip()
         if not chunk or ":" not in chunk:
@@ -71,8 +69,6 @@ def parse_roster(raw: str) -> Dict[str, List[str]]:
 
 ROSTER = parse_roster(TEAMS_ROSTER_RAW)
 kb_engine = KBEngine() if KBEngine else None
-
-# ------------------------------- MODELS (Pydantic) -----------------------------
 
 class IngestTicket(BaseModel):
     subject: str
@@ -90,21 +86,10 @@ class ChatMessage(BaseModel):
     user_phone: Optional[str] = None
 
 class UpdateTicket(BaseModel):
-    status: Optional[str] = Field(default=None, description="open|in_progress|resolved|closed")
+    status: Optional[str] = Field(default=None)
     assignee_team: Optional[str] = None
     assignee_user: Optional[str] = None
-    priority: Optional[str] = Field(default=None, description="P1|P2|P3|P4")
-
-class KBIndexItem(BaseModel):
-    title: str
-    content: str
-    tags: List[str] = []
-
-class KBQuery(BaseModel):
-    text: str
-    top_k: int = 3
-
-# ------------------------------- STARTUP SAFE ----------------------------------
+    priority: Optional[str] = Field(default=None)
 
 @app.on_event("startup")
 def on_startup():
@@ -116,26 +101,25 @@ def on_startup():
             try:
                 existing = db.query(KnowledgeBase).count()
                 if existing == 0 and not SEED_DISABLED:
-                    print("Seeding KB...")
                     seed = [
                         KnowledgeBase(
                             title="Reset Domain Password",
-                            content="Use Ctrl+Alt+Del -> Change password. If remote connect VPN first.",
+                            content="Use Ctrl+Alt+Del -> Change password. If remote, connect VPN first.",
                             tags="password,account,login"
                         ),
                         KnowledgeBase(
                             title="VPN Access and Setup",
-                            content="Install client; use AD creds; approve MFA push.",
+                            content="Install client; use AD credentials; approve MFA.",
                             tags="vpn,remote,mfa"
                         ),
                         KnowledgeBase(
                             title="Outlook Email Configuration",
-                            content="Add account -> Microsoft 365 -> restart Outlook if prompted.",
+                            content="Add Account -> Microsoft 365, restart if prompted.",
                             tags="outlook,email,office"
                         ),
                         KnowledgeBase(
                             title="Printer Not Working",
-                            content="Check power/network; reinstall driver; use IP printing if discovery fails.",
+                            content="Check power/network; reinstall driver; use IP printing if needed.",
                             tags="printer,hardware"
                         ),
                     ]
@@ -144,49 +128,13 @@ def on_startup():
                 print("Building KB index...")
                 kb_engine.build_index(db)
             except Exception as e:
-                print("KB init error (non-fatal):", e)
+                print("KB init error:", e)
             finally:
                 db.close()
         else:
-            print("KB disabled; skipping index build.")
+            print("KB disabled.")
     except Exception as e:
-        print("Startup error (not crashing):", e)
-
-# ------------------------------- UTILITIES -------------------------------------
-
-def apply_historical_prior(db, category: str, current_route: dict, confidence: Optional[float]):
-    try:
-        row = (
-            db.query(Ticket.assignee_team, Ticket.priority, func.count().label("c"))
-            .filter(Ticket.category == category, Ticket.assignee_team != None)  # noqa: E711
-            .group_by(Ticket.assignee_team, Ticket.priority)
-            .order_by(func.count().desc())
-            .first()
-        )
-        if row and (confidence or 0) < 0.7:
-            team = row[0] or current_route["team"]
-            priority = row[1] or current_route["priority"]
-            return {"team": team, "priority": priority, "prior_applied": True}
-    except Exception as e:
-        print("Historical prior error:", e)
-    return current_route
-
-def choose_assignee(team: str, ticket_id: int) -> Optional[str]:
-    emails = ROSTER.get(team) or []
-    if not emails:
-        return None
-    idx = (ticket_id - 1) % len(emails)
-    return emails[idx]
-
-# Safe classification wrapper
-def safe_classify(text: str):
-    try:
-        return classify_text(text)
-    except Exception as e:
-        print("Classification error:", e)
-        return {"category": "other", "confidence": 0.0, "error": str(e)}
-
-# ------------------------------- ROUTES ----------------------------------------
+        print("Startup error (non-fatal):", e)
 
 @app.get("/ping")
 def ping():
@@ -201,6 +149,35 @@ def health():
         "seed_disabled": SEED_DISABLED,
         "auto_assign": AUTO_ASSIGN
     }
+
+def apply_historical_prior(db, category: str, current_route: dict, confidence: Optional[float]):
+    try:
+        row = (
+            db.query(Ticket.assignee_team, Ticket.priority, func.count().label("c"))
+            .filter(Ticket.category == category, Ticket.assignee_team != None)
+            .group_by(Ticket.assignee_team, Ticket.priority)
+            .order_by(func.count().desc())
+            .first()
+        )
+        if row and (confidence or 0) < 0.7:
+            return {"team": row[0] or current_route["team"], "priority": row[1] or current_route["priority"], "prior_applied": True}
+    except Exception as e:
+        print("Historical prior error:", e)
+    return current_route
+
+def choose_assignee(team: str, ticket_id: int) -> Optional[str]:
+    emails = ROSTER.get(team) or []
+    if not emails:
+        return None
+    idx = (ticket_id - 1) % len(emails)
+    return emails[idx]
+
+def safe_classify(text: str):
+    try:
+        return classify_text(text)
+    except Exception as e:
+        print("Classification error:", e)
+        return {"category": "other", "confidence": 0.0, "error": str(e)}
 
 @app.post("/tickets/ingest")
 def ingest_ticket(payload: IngestTicket):
@@ -235,7 +212,6 @@ def ingest_ticket(payload: IngestTicket):
                 db.commit()
                 db.refresh(ticket)
 
-        # Notifications (guarded)
         try:
             notify_ticket_created(ticket)
             notify_requester_ticket_created(ticket)
@@ -243,7 +219,7 @@ def ingest_ticket(payload: IngestTicket):
             notify_user_assignment(ticket)
             notify_requester_assigned(ticket)
         except Exception as e:
-            print("Notification error (non-fatal):", e)
+            print("Notification error:", e)
 
         suggestions = []
         if kb_engine and not KB_DISABLED:
@@ -311,7 +287,7 @@ def update_ticket(ticket_id: int, payload: UpdateTicket):
                 notify_user_assignment(t)
                 notify_requester_assigned(t)
         except Exception as e:
-            print("Notification error on update:", e)
+            print("Notification error update:", e)
         return t.to_dict()
     finally:
         db.close()
@@ -334,18 +310,17 @@ def contact_requester(ticket_id: int, message: str = Body(..., embed=True)):
 @app.post("/chat")
 def chat(payload: ChatMessage):
     text = (payload.message or "").lower().strip()
-
-    def resp(message: str, resolved: bool = False, intent: Optional[str] = None, create_ticket: bool = False):
+    def resp(message: str, resolved: bool=False, intent: Optional[str]=None, create_ticket: bool=False):
         return {"response": message, "resolved": resolved, "intent": intent, "create_ticket": create_ticket}
 
-    if any(k in text for k in ["password", "reset", "forgot"]) and "vpn" not in text:
-        return resp("To reset your domain password: Ctrl+Alt+Del → Change password; if remote connect VPN first. Reply 'create ticket' to escalate.", True, "password_reset")
+    if any(k in text for k in ["password","reset","forgot"]) and "vpn" not in text:
+        return resp("Reset password: Ctrl+Alt+Del -> Change password (VPN first if remote). 'create ticket' to escalate.", True, "password_reset")
     if "vpn" in text:
-        return resp("VPN: Install client, login with AD creds, approve MFA push. Reply 'create ticket' to escalate.", True, "vpn_help")
-    if any(k in text for k in ["outlook", "email", "o365"]):
-        return resp("Outlook: Add Account → Microsoft 365 → restart if prompted. Reply 'create ticket' if issue persists.", True, "outlook_config")
+        return resp("VPN: Install client, AD creds, approve MFA. 'create ticket' to escalate.", True, "vpn_help")
+    if any(k in text for k in ["outlook","email","o365"]):
+        return resp("Outlook: Add Account -> Microsoft 365. Restart if prompted. 'create ticket' to escalate.", True, "outlook_config")
     if "printer" in text or "print" in text:
-        return resp("Printer: Check power/network, reinstall driver, use IP printing if discovery fails. Reply 'create ticket' to escalate.", True, "printer_issue")
+        return resp("Printer: Check power/network; reinstall driver; IP printing if discovery fails. 'create ticket' to escalate.", True, "printer_issue")
 
     if "create ticket" in text or "open ticket" in text:
         fake = IngestTicket(
@@ -356,15 +331,10 @@ def chat(payload: ChatMessage):
             channel="chatbot"
         )
         result = ingest_ticket(fake)
-        return {
-            "response": "Ticket created from chat.",
-            "resolved": True,
-            "intent": "create_ticket",
-            "ticket": result["ticket"],
-            "kb_suggestions": result["kb_suggestions"]
-        }
+        return {"response":"Ticket created from chat.", "resolved":True, "intent":"create_ticket",
+                "ticket":result["ticket"], "kb_suggestions":result["kb_suggestions"]}
 
-    return resp("I can help with password, VPN, Outlook, printer. Describe issue or say 'create ticket'.")
+    return resp("I can help with password, VPN, Outlook, printer. Describe your issue or say 'create ticket'.")
 
 @app.get("/db-test")
 def db_test():
