@@ -22,7 +22,9 @@ from .notifications import (
     notify_requester_assigned,
     notify_contact_requester,
 )
-
+from fastapi import FastAPI
+app = FastAPI()
+# ... routes ...
 app = FastAPI(title="Smart Helpdesk MVP (Free Edition)", version="0.6.0")
 
 app.add_middleware(

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SMART HELP DESK – Feasibility & Viability</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{
+ --primary:#0e4aa3;--primary2:#4cc9f0;--bg:#ffffff;--border:#d7e3ef;
+ --muted:#2d3748;--danger:#d80032;--warn:#ff9f1c;--ok:#0d9f6e;
+ --radius:20px;font-family:"Segoe UI",Arial,sans-serif;
+}
+html,body{margin:0;padding:0;background:#0f1522;}
+.slide{width:100vw;height:100vh;background:var(--bg);padding:60px 90px 42px 140px;box-sizing:border-box;position:relative;display:flex;flex-direction:column;}
+.team-oval{position:absolute;top:40px;left:30px;width:160px;height:125px;border-radius:50%;border:3px solid #6d6496;background:radial-gradient(circle at 35% 30%,#fff,#ece8ff);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:600;font-size:17px;color:#2d2a45;}
+.logo-box{position:absolute;top:38px;right:40px;width:190px;height:120px;display:flex;align-items:center;justify-content:center;}
+.logo-box img{max-width:100%;max-height:100%;object-fit:contain;}
+h1{margin:0;font-size:54px;text-align:center;font-weight:700;color:#000;}
+.underline{height:5px;width:100%;background:linear-gradient(90deg,var(--primary),var(--primary2));margin:14px 0 34px;border-radius:3px;}
+h2{margin:0;font-size:34px;color:var(--primary);}
+ul{margin:12px 0 0;padding-left:32px;font-size:22px;line-height:1.33;}
+li{margin-bottom:8px;}
+.footer{position:absolute;left:0;bottom:0;width:100%;height:46px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:500;letter-spacing:.4px;font-size:14px;}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:28px;margin-top:10px;}
+.box{border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px 18px;background:#f7fbff;box-shadow:0 4px 12px rgba(0,0,0,.08);display:flex;flex-direction:column;gap:12px;}
+.box h3{margin:0;font-size:20px;color:var(--primary);}
+.small{font-size:16px;line-height:1.35;color:var(--muted);}
+.matrix{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:8px;}
+.risk{background:#fff;border:1px solid #e2e8f0;padding:12px 14px;border-radius:16px;box-shadow:0 3px 10px rgba(0,0,0,.08);display:flex;flex-direction:column;gap:4px;}
+.risk h4{margin:0;font-size:15px;font-weight:700;color:#0e3e71;}
+.risk p{margin:0;font-size:13px;line-height:1.35;color:#46586d;}
+.risk.high{border-left:6px solid var(--danger);}
+.risk.med{border-left:6px solid var(--warn);}
+.risk.low{border-left:6px solid var(--ok);}
+.strategy{margin-top:26px;border:1px solid var(--border);background:#0e1d2e;color:#cfe9ff;padding:14px 20px;border-radius:18px;font-family:Consolas,Menlo,monospace;font-size:15px;line-height:1.35;box-shadow:inset 0 0 0 2px #1d3d5e;}
+</style>
+</head>
+<body>
+<section class="slide">
+  <div class="team-oval">Your<br>Team<br>Name</div>
+  <div class="logo-box"><img src="sih_logo.png" alt="SIH Logo"></div>
+  <h1>FEASIBILITY & VIABILITY</h1>
+  <div class="underline"></div>
+
+  <h2>Feasibility Analysis</h2>
+  <div class="grid">
+    <div class="box">
+      <h3>Open Source Stack</h3>
+      <p class="small">FastAPI, React, scikit-learn & SQLAlchemy avoid licensing costs; rapid iteration in low-resource setting.</p>
+    </div>
+    <div class="box">
+      <h3>Performance</h3>
+      <p class="small">Rule-based classification executes in milliseconds; no external round-trips; scalable horizontally with minimal tuning.</p>
+    </div>
+    <div class="box">
+      <h3>Integration Ease</h3>
+      <p class="small">Adapters isolate legacy peculiarities; standard ingest contract reduces complexity when adding new channels/tools.</p>
+    </div>
+    <div class="box">
+      <h3>Maintainability</h3>
+      <p class="small">Layered architecture + clear module boundaries lower future enhancement friction (SLA engine, dashboards, RBAC).</p>
+    </div>
+  </div>
+
+  <h2 style="margin-top:34px;">Potential Challenges & Risks</h2>
+  <div class="matrix">
+    <div class="risk high">
+      <h4>Misclassification</h4>
+      <p>Incorrect routing slows resolution.</p>
+      <p><strong>Mitigation:</strong> historical prior + manual override interface (Phase 3).</p>
+    </div>
+    <div class="risk med">
+      <h4>Alert Fatigue</h4>
+      <p>Too many notifications reduce attention.</p>
+      <p><strong>Mitigation:</strong> configurable ALERT_EVENTS & severity filters.</p>
+    </div>
+    <div class="risk med">
+      <h4>Scaling KB</h4>
+      <p>TF‑IDF may degrade with large corpus.</p>
+      <p><strong>Mitigation:</strong> planned vector embeddings (Phase 5).</p>
+    </div>
+    <div class="risk low">
+      <h4>Infra Cost</h4>
+      <p>Escalates with heavy concurrency.</p>
+      <p><strong>Mitigation:</strong> container autoscaling + caching.</p>
+    </div>
+  </div>
+
+  <h2 style="margin-top:30px;">Strategies for Overcoming Challenges</h2>
+  <div class="strategy">
+    IMPLEMENTATION OUTLINE:
+    1. Collect feedback on misrouted tickets -> maintain override mapping table.
+    2. Introduce severity-based throttling; group low priority alerts into digest.
+    3. Expand KB gradually; measure suggestion accuracy -> threshold-based embedding adoption.
+    4. Integrate metrics (Prometheus) for CPU/time per route -> scale pods only when saturation > target.
+    5. Security & compliance: add RBAC & audit logs before external rollout.
+  </div>
+
+  <div class="footer">@SIH 2025 – Feasibility & Viability</div>
+</section>
+</body>
+</html>
