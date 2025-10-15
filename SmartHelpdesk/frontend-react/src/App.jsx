@@ -1,37 +1,49 @@
-import React, { useState } from 'react'
-import TicketForm from './components/TicketForm'
-import TicketList from './components/TicketList'
-import Chatbot from './components/Chatbot'
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+import Home from "./pages/Home";
+import Dashboard from "./pages/Dashboard";
+import Login from "./pages/Login";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import Navbar from "./components/Navbar";
+import TicketPage from "./pages/TicketPage";
+
+// PrivateRoute ensures only logged-in users can access dashboard
+function PrivateRoute({ children }) {
+  const { user } = useAuth();
+  if (user === undefined) return null; // or loading spinner
+  return user ? children : <Navigate to="/login" />;
+}
 
 export default function App() {
-  const [refreshFlag, setRefreshFlag] = useState(0)
-
-  const onTicketCreated = () => {
-    setRefreshFlag(f => f + 1)
-  }
-
   return (
-    <div className="layout">
-      <header className="header">
-        <h1>Smart Helpdesk (React)</h1>
-      </header>
-
-      <main className="grid">
-        <section className="card">
-          <h2>Raise a Ticket</h2>
-            <TicketForm onCreated={onTicketCreated} />
-        </section>
-
-        <section className="card">
-          <h2>Self-Service Chatbot</h2>
-          <Chatbot onTicketCreated={onTicketCreated} />
-        </section>
-
-        <section className="card wide">
-          <h2>Recent Tickets</h2>
-          <TicketList refreshFlag={refreshFlag} />
-        </section>
-      </main>
-    </div>
-  )
+    <AuthProvider>
+      <Router>
+        <Navbar />
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route
+            path="/dashboard"
+            element={
+              <PrivateRoute>
+                <Dashboard />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/tickets"
+            element={
+              <PrivateRoute>
+                  <TicketPage />
+              </PrivateRoute>
+            }
+          />
+          <Route path="/*" element={<Home />} />
+        </Routes>
+      </Router>
+    </AuthProvider>
+  );
 }
