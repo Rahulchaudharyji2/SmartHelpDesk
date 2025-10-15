@@ -7,7 +7,6 @@ export const api = axios.create({
   timeout: 15000
 })
 
-// Generic helpers
 export async function createTicket(payload) {
   const { data } = await api.post('/tickets/ingest', payload)
   return data
