@@ -2,7 +2,7 @@ import os, sys
 
 # Add nested path to sys.path
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))  # root
-NESTED = os.path.join(BASE_DIR, "backend")
+NESTED = os.path.join(BASE_DIR,  "SmartHelpDesk", "SmartHelpdesk.","backend")
 if NESTED not in sys.path:
     sys.path.append(NESTED)
 
